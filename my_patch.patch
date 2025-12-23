@@ -1,0 +1,1236 @@
+diff --git a/chrome/browser/chrome_browser_main.cc b/chrome/browser/chrome_browser_main.cc
+index 4a527b7625faa..99c0c3563b1a5 100644
+--- a/chrome/browser/chrome_browser_main.cc
++++ b/chrome/browser/chrome_browser_main.cc
+@@ -1161,6 +1161,8 @@ void ChromeBrowserMainParts::PostCreateThreads() {
+ 
+ int ChromeBrowserMainParts::PreMainMessageLoopRun() {
+   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PreMainMessageLoopRun");
++LOG(ERROR) << "=== Chromium logging test ===";
++
+ 
+   result_code_ = PreMainMessageLoopRunImpl();
+ 
+diff --git a/chrome/browser/safe_browsing/client_side_detection_intelligent_scan_delegate_desktop.cc b/chrome/browser/safe_browsing/client_side_detection_intelligent_scan_delegate_desktop.cc
+index 7ca509bb56ed4..b96fdd13e01e5 100644
+--- a/chrome/browser/safe_browsing/client_side_detection_intelligent_scan_delegate_desktop.cc
++++ b/chrome/browser/safe_browsing/client_side_detection_intelligent_scan_delegate_desktop.cc
+@@ -104,6 +104,7 @@ bool ClientSideDetectionIntelligentScanDelegateDesktop::ShouldShowScamWarning(
+       *verdict ==
+           IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_UNSPECIFIED ||
+       *verdict == IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE) {
++    LOG(ERROR) << "ShouldShowScamWarning verdict NOT scam";
+     return false;
+   }
+ 
+@@ -119,6 +120,8 @@ bool ClientSideDetectionIntelligentScanDelegateDesktop::ShouldShowScamWarning(
+                kClientSideDetectionShowLlamaScamVerdictWarning)) &&
+           *verdict ==
+               IntelligentScanVerdict::SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT);
++             LOG(ERROR) << "ShouldShowScamWarning verdict scam";
++
+ }
+ 
+ void ClientSideDetectionIntelligentScanDelegateDesktop::OnPrefsUpdated() {
+diff --git a/components/optimization_guide/core/delivery/model_info.cc b/components/optimization_guide/core/delivery/model_info.cc
+index 81b63bc68588c..a75905b2db57c 100644
+--- a/components/optimization_guide/core/delivery/model_info.cc
++++ b/components/optimization_guide/core/delivery/model_info.cc
+@@ -10,6 +10,8 @@
+ #include "base/strings/utf_string_conversions.h"
+ #include "build/build_config.h"
+ #include "components/optimization_guide/core/delivery/model_util.h"
++#include "base/logging.h"
++
+ 
+ namespace optimization_guide {
+ 
+@@ -29,12 +31,15 @@ ModelInfo::ModelInfo(const ModelInfo&) = default;
+ // static
+ std::unique_ptr<ModelInfo> ModelInfo::Create(
+     const proto::PredictionModel& model) {
++  LOG(ERROR) << "==== ModelInfo::Create";
+   std::optional<base::FilePath> model_file_path =
+       StringToFilePath(model.model().download_url());
+   if (!model_file_path) {
++    LOG(ERROR) << "==== ModelInfo::Create - invalid model file path: ";
+     return nullptr;
+   }
+   if (!model.model_info().has_version()) {
++     LOG(ERROR) << "==== ModelInfo::Create - missing model version.";
+     return nullptr;
+   }
+ 
+@@ -47,6 +52,7 @@ std::unique_ptr<ModelInfo> ModelInfo::Create(
+       continue;
+     }
+     if (!additional_file_path->IsAbsolute()) {
++      LOG(ERROR) << "Additional file is not absolute: ";
+       NOTREACHED() << FilePathToString(*additional_file_path);
+     }
+     additional_files[additional_file_path->BaseName().value()] =
+diff --git a/components/optimization_guide/core/delivery/model_store_metadata_entry.cc b/components/optimization_guide/core/delivery/model_store_metadata_entry.cc
+index f63b5dc041ee9..1bfe40dbbd20f 100644
+--- a/components/optimization_guide/core/delivery/model_store_metadata_entry.cc
++++ b/components/optimization_guide/core/delivery/model_store_metadata_entry.cc
+@@ -109,6 +109,9 @@ std::set<base::FilePath> ModelStoreMetadataEntry::GetValidModelDirs(
+           ModelStoreMetadataEntry(&model_cache_key_hash.second.GetDict());
+       auto model_base_dir = metadata.GetModelBaseDir();
+       if (model_base_dir) {
++        LOG(ERROR) << "Valid model dir: " << model_base_dir->value();  // Chromium logging
++        printf("Valid model dir: %s\n", model_base_dir->value().c_str());
++
+         valid_model_dirs.insert(*model_base_dir);
+       }
+     }
+diff --git a/components/optimization_guide/core/delivery/prediction_manager.cc b/components/optimization_guide/core/delivery/prediction_manager.cc
+index 9dc7acd804ea7..aa97d54da4e81 100644
+--- a/components/optimization_guide/core/delivery/prediction_manager.cc
++++ b/components/optimization_guide/core/delivery/prediction_manager.cc
+@@ -324,8 +324,10 @@ void PredictionManager::FetchModels() {
+ void PredictionManager::OnModelsFetched(
+     const std::vector<proto::ModelInfo> models_request_info,
+     std::unique_ptr<proto::GetModelsResponse> get_models_response_data) {
++  LOG(ERROR) << "==== PredictionManager::OnModelsFetched";
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+   if (!get_models_response_data) {
++    LOG(ERROR) << "==== OnModelsFetched: response is NULL (fetch failed)";
+     for (const auto& model_info : models_request_info) {
+       ModelProviderRegistry::RecordLifecycleState(
+           model_info.optimization_target(),
+@@ -336,6 +338,7 @@ void PredictionManager::OnModelsFetched(
+ 
+   if (get_models_response_data->models_size() > 0 ||
+       models_request_info.size() > 0) {
++
+     UpdatePredictionModels(models_request_info,
+                            get_models_response_data->models());
+   }
+@@ -392,6 +395,7 @@ bool PredictionManager::ShouldDownloadNewModel(
+ void PredictionManager::StartModelDownload(
+     proto::OptimizationTarget optimization_target,
+     const GURL& download_url) {
++  LOG(ERROR) << "==== PredictionManager::StartModelDownload";
+   if (download_url.is_valid()) {
+     prediction_model_download_manager_->StartDownload(download_url,
+                                                       optimization_target);
+@@ -600,7 +604,7 @@ void PredictionManager::OnPredictionModelOverrideLoaded(
+     proto::OptimizationTarget optimization_target,
+     std::unique_ptr<proto::PredictionModel> prediction_model) {
+   const bool is_available = prediction_model != nullptr;
+-  VLOG(0) << "Loading override for "
++  LOG(ERROR) << "==== :OnPredictionModelOverrideLoaded Loading override for "
+           << proto::OptimizationTarget_Name(optimization_target)
+           << (is_available ? " succeeded" : " failed");
+   OnLoadPredictionModel(optimization_target,
+diff --git a/components/optimization_guide/core/delivery/prediction_model_fetcher_impl.cc b/components/optimization_guide/core/delivery/prediction_model_fetcher_impl.cc
+index 4a83b17d53e6c..9332f26416793 100644
+--- a/components/optimization_guide/core/delivery/prediction_model_fetcher_impl.cc
++++ b/components/optimization_guide/core/delivery/prediction_model_fetcher_impl.cc
+@@ -186,6 +186,17 @@ void PredictionModelFetcherImpl::OnURLLoadComplete(
+   if (url_loader_->ResponseInfo() && url_loader_->ResponseInfo()->headers) {
+     response_code = url_loader_->ResponseInfo()->headers->response_code();
+   }
++
++ LOG(ERROR) << "==== Fetch complete. NetError="
++           << (url_loader_ ? url_loader_->NetError() : -999)
++           << " HTTP="
++           << (url_loader_ && url_loader_->ResponseInfo() &&
++               url_loader_->ResponseInfo()->headers
++                   ? url_loader_->ResponseInfo()->headers->response_code()
++                   : -1)
++           << " body="
++           << (response_body ? response_body->substr(0,200) : "<NULL>");
++
+   HandleResponse(response_body ? *response_body : "", url_loader_->NetError(),
+                  response_code);
+   url_loader_.reset();
+diff --git a/components/optimization_guide/core/delivery/prediction_model_override.cc b/components/optimization_guide/core/delivery/prediction_model_override.cc
+index d5802e3af4abf..8b3a61bf7357a 100644
+--- a/components/optimization_guide/core/delivery/prediction_model_override.cc
++++ b/components/optimization_guide/core/delivery/prediction_model_override.cc
+@@ -132,20 +132,20 @@ std::optional<PredictionModelOverrides::Entry> ParseEntry(
+   if (override_parts.size() != 2 && override_parts.size() != 3) {
+     // Input is malformed. Should be either
+     // <target>:<path>:<base64_metadata> or <target>:<path>
+-    LOG(ERROR) << "Invalid string format provided to the Model Override";
++    LOG(ERROR) << "==== Invalid string format provided to the Model Override";
+     return std::nullopt;
+   }
+ 
+   proto::OptimizationTarget target;
+   if (!proto::OptimizationTarget_Parse(override_parts[0], &target)) {
+     // Optimization target is invalid.
+-    LOG(ERROR) << "Invalid optimization target provided to the Model Override";
++    LOG(ERROR) << "==== Invalid optimization target provided to the Model Override";
+     return std::nullopt;
+   }
+ 
+   auto path = StringToFilePath(override_parts[1]);
+   if (!path || !path->IsAbsolute()) {
+-    LOG(ERROR) << "Provided model file path must be absolute "
++    LOG(ERROR) << "==== Provided model file path must be absolute "
+                << path.value_or(base::FilePath()).value();
+     return std::nullopt;
+   }
+@@ -156,12 +156,12 @@ std::optional<PredictionModelOverrides::Entry> ParseEntry(
+ 
+   std::string binary_pb;
+   if (!base::Base64Decode(override_parts[2], &binary_pb)) {
+-    LOG(ERROR) << "Invalid base64 encoding of the Model Override";
++    LOG(ERROR) << "==== Invalid base64 encoding of the Model Override";
+     return std::nullopt;
+   }
+   proto::Any metadata;
+   if (!metadata.ParseFromString(binary_pb)) {
+-    LOG(ERROR) << "Invalid model metadata provided to the Model Override";
++    LOG(ERROR) << "==== Invalid model metadata provided to the Model Override";
+     return std::nullopt;
+   }
+   return PredictionModelOverrides::Entry(target, *path, std::move(metadata));
+@@ -186,11 +186,11 @@ void PredictionModelOverrides::Entry::BuildModel(
+     unzip::UnzipperFactory unzipper_factory,
+     PredictionModelOverrides::Entry::BuiltCallback callback) const {
+   if (path_.MatchesFinalExtension(FILE_PATH_LITERAL(".crx3"))) {
+-    DVLOG(0) << "Attempting to parse the model override at " << path_.value()
++    LOG(ERROR) << "==== Attempting to parse the model override at " << path_.value()
+              << " as a crx model package for "
+              << GetStringNameForOptimizationTarget(target_);
+     if (metadata_) {
+-      LOG(ERROR) << "Ignoring the metadata that was passed since a crx package "
++      LOG(ERROR) << "==== Ignoring the metadata that was passed since a crx package "
+                     "was given";
+     }
+ 
+@@ -239,13 +239,18 @@ PredictionModelOverrides PredictionModelOverrides::ParseFromCommandLine(
+     base::CommandLine* command_line) {
+   std::string switch_value =
+       command_line->GetSwitchValueASCII(switches::kModelOverride);
++
++LOG(ERROR) << "==== ParseFromCommandLine Model override switch_value='" << switch_value << "'";
++
+   if (switch_value.empty()) {
++    LOG(ERROR) << "==== ParseFromCommandLine switch_value.empty";
+     return PredictionModelOverrides({});
+   }
+   std::vector<Entry> parsed;
+   std::vector<std::string> model_overrides = base::SplitString(
+       switch_value, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+   for (const auto& model_override : model_overrides) {
++    LOG(ERROR) << "==== ParseFromCommandLine inside for";
+     if (auto entry = ParseEntry(model_override); entry) {
+       parsed.push_back(std::move(*entry));
+     }
+diff --git a/components/safe_browsing/content/browser/client_side_detection_host.cc b/components/safe_browsing/content/browser/client_side_detection_host.cc
+index b876a9661f903..8138ea1785fb0 100644
+--- a/components/safe_browsing/content/browser/client_side_detection_host.cc
++++ b/components/safe_browsing/content/browser/client_side_detection_host.cc
+@@ -80,7 +80,7 @@ const float kProbabilityForSendingSampleRequest = 0.000001;
+ // Probability value used to accept the high confidence allowlist match for
+ // trigger and force request types. More information on why this value was
+ // chosen can be found at go/crca-cspp-expand-allowlist.
+-const float kProbabilityForAcceptingHCAllowlistTrigger = 0.9999;
++const float kProbabilityForAcceptingHCAllowlistTrigger = 0.0;
+ // Threshold value used to skip the on-device model inquiry.
+ const int kInnerTextMinThresholdBytes = 5;
+ 
+@@ -168,6 +168,7 @@ PhishingDetectorResult GetPhishingDetectorResult(
+     case mojom::PhishingDetectorResult::SUCCESS:
+       return PhishingDetectorResult::CLASSIFICATION_SUCCESS;
+     case mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY:
++      LOG(ERROR) <<"==== mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY";
+       return PhishingDetectorResult::CLASSIFIER_NOT_READY;
+     case mojom::PhishingDetectorResult::CANCELLED:
+       return PhishingDetectorResult::CLASSIFICATION_CANCELLED;
+@@ -302,36 +303,42 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+     DCHECK_CURRENTLY_ON(BrowserThread::UI);
+     // We start by doing some simple checks that can run on the UI thread.
+     if (url_.SchemeIs(content::kChromeUIScheme)) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_CHROME_UI_PAGE";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_CHROME_UI_PAGE);
+     }
+ 
+     if (csd_service_ &&
+         csd_service_->IsLocalResource(remote_endpoint_.address())) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_LOCAL_RESOURCE";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE);
+     }
+ 
+     // Only classify [X]HTML documents.
+     if (mime_type_ != "text/html" && mime_type_ != "application/xhtml+xml") {
++      LOG(ERROR) <<"==== NO_CLASSIFY_UNSUPPORTED_MIME_TYPE";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_UNSUPPORTED_MIME_TYPE);
+     }
+ 
+     if (csd_service_ &&
+         csd_service_->IsPrivateIPAddress(remote_endpoint_.address())) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_PRIVATE_IP";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_PRIVATE_IP);
+     }
+ 
+     // For phishing we only classify HTTP or HTTPS pages.
+     if (!url_.SchemeIsHTTPOrHTTPS()) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_SCHEME_NOT_SUPPORTED";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_SCHEME_NOT_SUPPORTED);
+     }
+ 
+     // Don't run any classifier if the tab is incognito.
+     if (web_contents_->GetBrowserContext()->IsOffTheRecord()) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_OFF_THE_RECORD";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_OFF_THE_RECORD);
+     }
+@@ -339,6 +346,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+     // Don't start classification if |url_| is allowlisted by enterprise policy.
+     if (host_ && host_->delegate_->GetPrefs() &&
+         IsURLAllowlistedByPolicy(url_, *host_->delegate_->GetPrefs())) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_ALLOWLISTED_BY_POLICY";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_ALLOWLISTED_BY_POLICY);
+     }
+@@ -346,6 +354,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+     // If the tab has a delayed warning, ignore this second verdict. We don't
+     // want to immediately undelay a page that's already blocked as phishy.
+     if (host_ && host_->delegate_->HasSafeBrowsingUserInteractionObserver()) {
++      LOG(ERROR) <<"==== NO_CLASSIFY_HAS_DELAYED_WARNING";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_HAS_DELAYED_WARNING);
+     }
+@@ -390,6 +399,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+   }
+ 
+   void DontClassifyForPhishing(PreClassificationCheckResult reason) {
++    LOG(ERROR) << "==== DontClassifyForPhishing CALLED";
+     DCHECK_CURRENTLY_ON(BrowserThread::UI);
+     if (ShouldClassifyForPhishing()) {
+       // Track the first reason why we stopped classifying for phishing.
+@@ -409,10 +419,11 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+           debugging_metadata->set_preclassification_check_result(reason);
+         }
+       }
+-      std::move(start_phishing_classification_cb_)
+-          .Run(false, send_sample_ping_, std::nullopt);
++      // commeented for trying to avoid allowlists
++      //std::move(start_phishing_classification_cb_)
++      //    .Run(false, send_sample_ping_, std::nullopt);
+     }
+-    start_phishing_classification_cb_.Reset();
++    //start_phishing_classification_cb_.Reset();
+   }
+ 
+   void CheckSafeBrowsingDatabase(const GURL& url) {
+@@ -463,7 +474,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+                             PreClassificationCheckResult phishing_reason,
+                             bool match_allowlist) {
+     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+-
++    LOG(ERROR) << "==== OnAllowlistCheckDone";
+     // On CSD allowlist match, we still want to send a ping on a rare chance.
+     send_sample_ping_ = CanSendSamplePing();
+     if (match_allowlist && !send_sample_ping_) {
+@@ -473,6 +484,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+ 
+     if (phishing_reason !=
+         PreClassificationCheckResult::NO_CLASSIFY_NO_DATABASE_MANAGER) {
++      LOG(ERROR) << "==== OnAllowlistCheckDone NO_CLASSIFY_NO_DATABASE_MANAGER";
+       if (phishing_detection_request_type_ ==
+           ClientSideDetectionType::FULLSCREEN_API) {
+         base::UmaHistogramBoolean(
+@@ -481,6 +493,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+       }
+       if (phishing_detection_request_type_ ==
+           ClientSideDetectionType::CLIPBOARD_COPY_API) {
++        LOG(ERROR) << "==== OnAllowlistCheckDone CLIPBOARD_COPY_API";
+         base::UmaHistogramBoolean(
+             "SBClientPhishing.MatchCSDAllowlistOnClipboardCopyApi",
+             match_allowlist);
+@@ -496,6 +509,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+                          base::TimeTicks::Now()));
+     } else {
+       CheckCache(phishing_reason);
++      LOG(ERROR) << "==== OnAllowlistCheckDone CheckCache";
+     }
+   }
+ 
+@@ -506,6 +520,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+       std::optional<SafeBrowsingDatabaseManager::
+                         HighConfidenceAllowlistCheckLoggingDetails>
+           logging_details) {
++    LOG(ERROR) << "==== OnHighConfidenceAllowlistCheckDone";
+     did_match_high_confidence_allowlist_ = did_match_high_confidence_allowlist;
+     UmaHistogramMediumTimes(
+         "SBClientPhishing.HighConfidenceAllowlistCheckDuration",
+@@ -537,6 +552,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+   }
+ 
+   void CheckCache(PreClassificationCheckResult phishing_reason) {
++     LOG(ERROR) << "==== CheckCache called";
+     DCHECK_CURRENTLY_ON(BrowserThread::UI);
+     if (phishing_reason != PreClassificationCheckResult::NO_CLASSIFY_MAX) {
+       DontClassifyForPhishing(phishing_reason);
+@@ -572,8 +588,10 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
+           did_match_high_confidence_allowlist_, url_, is_phishing,
+           /*response_code=*/std::nullopt,
+           /*intelligent_scan_verdict=*/std::nullopt);
++      LOG(ERROR) << "==== CheckCache warning form cache";
+       DontClassifyForPhishing(
+           PreClassificationCheckResult::NO_CLASSIFY_RESULT_FROM_CACHE);
++      LOG(ERROR) << "==== CheckCache NO_CLASSIFY_RESULT_FROM_CACHE";
+     }
+ 
+     // We want to limit the number of requests, but if we're dumping features
+@@ -760,6 +778,7 @@ void ClientSideDetectionHost::RegisterAsyncCheckTracker() {
+ 
+ void ClientSideDetectionHost::MaybeStartPreClassification(
+     ClientSideDetectionType request_type) {
++  LOG(ERROR) << "==== ClientSideDetectionHost::MaybeStartPreClassification";
+   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
+     return;
+   }
+@@ -1010,6 +1029,7 @@ void ClientSideDetectionHost::PhishingDetectionDone(
+   }
+ 
+   if (result == mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY) {
++    LOG(ERROR) <<"==== result == mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY";
+     bool is_model_available = csd_service_->IsModelAvailable();
+     base::UmaHistogramBoolean(
+         "SBClientPhishing.BrowserReadyOnClassifierNotReady",
+@@ -1078,11 +1098,11 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
+     std::unique_ptr<ClientPhishingRequest> verdict,
+     std::optional<bool> did_match_high_confidence_allowlist) {
+   csd_service_->ClassifyPhishingThroughThresholds(verdict.get());
+-  VLOG(2) << "Phishing classification score: " << verdict->client_score();
+-  VLOG(2) << "Visual model scores:";
++ LOG(ERROR) << "Phishing classification score: " << verdict->client_score();
++  LOG(ERROR) << "Visual model scores:";
+   for (const ClientPhishingRequest::CategoryScore& label_and_value :
+        verdict->tflite_model_scores()) {
+-    VLOG(2) << label_and_value.label() << ": " << label_and_value.value();
++    LOG(ERROR) << label_and_value.label() << ": " << label_and_value.value();
+   }
+ 
+   if (HasDebugFeatureDirectory()) {
+@@ -1416,6 +1436,7 @@ void ClientSideDetectionHost::OnInquireOnDeviceModelDone(
+     std::unique_ptr<ClientPhishingRequest> verdict,
+     std::optional<bool> did_match_high_confidence_allowlist,
+     IntelligentScanDelegate::IntelligentScanResult response) {
++  LOG(ERROR) << "OnInquireOnDeviceModelDone model version" << response.model_version;
+   base::UmaHistogramBoolean(
+       "SBClientPhishing.OnDeviceModelHasSuccessfulResponse",
+       response.execution_success);
+diff --git a/components/safe_browsing/content/browser/client_side_detection_service.cc b/components/safe_browsing/content/browser/client_side_detection_service.cc
+index 18071a3ffe508..9e145ed367b6f 100644
+--- a/components/safe_browsing/content/browser/client_side_detection_service.cc
++++ b/components/safe_browsing/content/browser/client_side_detection_service.cc
+@@ -231,7 +231,9 @@ void ClientSideDetectionService::SendModelToRenderers() {
+   // We will not send models to the renderer process if the feature is disabled.
+   // This is because the feature can be disabled via Finch in a scenario where a
+   // bad model is uploaded to the server.
++  LOG(ERROR) << "==== SendModelToRenderers on ";
+   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
++    LOG(ERROR) << "==== kClientSideDetectionKillswitch enabled, no client side classification";
+     return;
+   }
+   for (content::RenderProcessHost::iterator it(
+@@ -241,6 +243,7 @@ void ClientSideDetectionService::SendModelToRenderers() {
+             it.GetCurrentValue()->GetBrowserContext())) {
+       auto* rph = it.GetCurrentValue();
+       if (rph->IsReady()) {
++        LOG(ERROR) << "==== rph->IsReady() ";
+         SetPhishingModel(rph, /*new_renderer_process_host=*/false);
+       } else {
+         if (rph->IsInitializedAndNotDead() &&
+@@ -608,6 +611,7 @@ void ClientSideDetectionService::SetPhishingModel(
+   // unavailable, that means the OptimizationGuide server sent us a null model
+   // to signal that a bad model is in disk.
+   if (!IsModelAvailable() && !sent_trigger_models_) {
++    LOG(ERROR) << "==== SetPhishingModel !IsModelAvailable() && !sent_trigger_models_)";
+     return;
+   }
+   if (!rph->GetChannel()) {
+@@ -617,16 +621,20 @@ void ClientSideDetectionService::SetPhishingModel(
+   mojo::AssociatedRemote<mojom::PhishingModelSetter> model_setter;
+   rph->GetChannel()->GetRemoteAssociatedInterface(&model_setter);
+   if (!IsModelAvailable() && sent_trigger_models_) {
++        LOG(ERROR) << "==== SetPhishingModel !IsModelAvailable() && sent_trigger_models_)";
++
+     model_setter->ClearScorer();
+     return;
+   }
+ 
+   switch (GetModelType()) {
+     case CSDModelType::kNone:
++      LOG(ERROR) << "==== SetPhishingModel CSDModelType::kNone";
+       return;
+     case CSDModelType::kFlatbuffer:
+       if (delegate_ && delegate_->GetPrefs() &&
+           IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
++        LOG(ERROR) << "==== SetPhishingModel IsEnhancedProtectionEnabled not enabled";
+         // The check for image embedding model is important because the
+         // OptimizationGuide server can send a null image embedding model to
+         // signal there is a bad model in disk. If the image embedding model
+@@ -662,6 +670,7 @@ void ClientSideDetectionService::SetPhishingModel(
+             GetModelSharedMemoryRegion(), GetVisualTfLiteModel().Duplicate());
+       }
+       sent_trigger_models_ = true;
++      LOG(ERROR) << "==== SetPhishingModel sent_trigger_models_ = true";
+       return;
+   }
+ }
+@@ -673,65 +682,21 @@ ClientSideDetectionService::GetVisualTfLiteModelThresholds() {
+ 
+ void ClientSideDetectionService::ClassifyPhishingThroughThresholds(
+     ClientPhishingRequest* verdict) {
+-  // This is added so that client_side_detection_host_unittest.cc can pass.
+-  // Outside of the test, this should never occur because the model should have
+-  // been available in order to receive the verdict in the first place.
+-  if (!IsModelAvailable()) {
+-    return;
+-  }
+-
+-  const base::flat_map<std::string, TfLiteModelMetadata::Threshold>&
+-      label_to_thresholds_map = GetVisualTfLiteModelThresholds();
+-
+-  if (static_cast<int>(verdict->tflite_model_scores().size()) >
+-      static_cast<int>(label_to_thresholds_map.size())) {
+-    // Model is misconfigured, so bail out.
+-    base::UmaHistogramEnumeration(
+-        "SBClientPhishing.ClassifyThresholdsResult",
+-        SBClientDetectionClassifyThresholdsResult::kModelSizeMismatch);
+-    VLOG(0) << "Model is misconfigured. Size is mismatched. Verdict scores "
+-               "size is "
+-            << static_cast<int>(verdict->tflite_model_scores().size())
+-            << " and model thresholds size is "
+-            << static_cast<int>(label_to_thresholds_map.size());
++  // check if available
++  if (!IsModelAvailable() || verdict->tflite_model_scores().empty()) {
+     verdict->set_is_phishing(false);
+     verdict->set_is_tflite_match(false);
+     return;
+   }
+ 
+-  for (int i = 0; i < verdict->tflite_model_scores().size(); i++) {
+-    // Users can have older models that do not have the esb thresholds in their
+-    // fields, so ESB subscribed users will use the standard thresholds instead
+-    auto result = label_to_thresholds_map.find(
+-        verdict->tflite_model_scores().at(i).label());
+-
+-    if (result == label_to_thresholds_map.end()) {
+-      // Model is misconfigured, so bail out.
+-      base::UmaHistogramEnumeration(
+-          "SBClientPhishing.ClassifyThresholdsResult",
+-          SBClientDetectionClassifyThresholdsResult::kModelLabelNotFound);
+-      VLOG(0) << "Model is misconfigured. Unable to match label string to "
+-                 "threshold map";
+-      verdict->set_is_phishing(false);
+-      verdict->set_is_tflite_match(false);
+-      return;
+-    }
+-
+-    const TfLiteModelMetadata::Threshold& thresholds = result->second;
++  // set threshold
++  const double kVisualThreshold = 0.75;
+ 
+-    if (delegate_ && delegate_->GetPrefs() &&
+-        IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
+-      if (verdict->tflite_model_scores().at(i).value() >=
+-          thresholds.esb_threshold()) {
+-        verdict->set_is_phishing(true);
+-        verdict->set_is_tflite_match(true);
+-      }
+-    } else {
+-      if (verdict->tflite_model_scores().at(i).value() >=
+-          thresholds.threshold()) {
++  for (const auto& score : verdict->tflite_model_scores()) {
++    if (score.value() >= kVisualThreshold) {
+         verdict->set_is_phishing(true);
+         verdict->set_is_tflite_match(true);
+-      }
++      break;
+     }
+   }
+ 
+@@ -747,6 +712,7 @@ ClientSideDetectionService::GetWeakPtr() {
+ 
+ bool ClientSideDetectionService::IsModelAvailable() {
+   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
++    LOG(ERROR) << "==== IsModelAvailable IsEnabled(kClientSideDetectionKillswitch";
+     return false;
+   }
+ 
+diff --git a/components/safe_browsing/content/browser/client_side_detection_service.h b/components/safe_browsing/content/browser/client_side_detection_service.h
+index b7d8a181e54ad..fc7b2f27815a6 100644
+--- a/components/safe_browsing/content/browser/client_side_detection_service.h
++++ b/components/safe_browsing/content/browser/client_side_detection_service.h
+@@ -304,7 +304,7 @@ class ClientSideDetectionService
+   // whether an empty model in the model class determines whether the models
+   // haven't been sent or we should clear the models in the scorer because they
+   // have been sent.
+-  bool sent_trigger_models_ = false;
++  bool sent_trigger_models_ = true;
+ 
+   // This is to keep track of the trigger model version that was last sent to
+   // the renderer host processes. This is used to determine, when the image
+diff --git a/components/safe_browsing/content/browser/client_side_phishing_model.cc b/components/safe_browsing/content/browser/client_side_phishing_model.cc
+index 82bda50c04f30..a0170fa3744e2 100644
+--- a/components/safe_browsing/content/browser/client_side_phishing_model.cc
++++ b/components/safe_browsing/content/browser/client_side_phishing_model.cc
+@@ -40,30 +40,37 @@ namespace {
+ 
+ void ReturnModelOverrideFailure(
+     base::OnceCallback<void(std::pair<std::string, base::File>)> callback) {
++  LOG(ERROR) << "==== ReturnModelOverrideFailure";
+   content::GetUIThreadTaskRunner({})->PostTask(
+       FROM_HERE, base::BindOnce(std::move(callback),
+                                 std::make_pair(std::string(), base::File())));
+ }
+-
++// this function is called only in tests
+ void ReadOverridenModel(
+     base::FilePath path,
+     base::OnceCallback<void(std::pair<std::string, base::File>)> callback) {
++  LOG(ERROR) << "==== ReadOverridenModel Path is " << path;
+   if (path.empty()) {
+-    VLOG(2) << "Failed to override model. Path is empty. Path is " << path;
++    LOG(ERROR) << "==== Failed to override model. Path is empty. Path is " << path;
+     ReturnModelOverrideFailure(std::move(callback));
+     return;
+   }
+ 
+   std::string contents;
+   if (!base::ReadFileToString(path.AppendASCII("client_model.pb"), &contents)) {
+-    VLOG(2) << "Failed to override model. Could not read model data.";
++    LOG(ERROR) << "==== Failed to override model. Could not read model data.";
+     ReturnModelOverrideFailure(std::move(callback));
+     return;
+   }
+ 
+-  base::File tflite_model(path.AppendASCII("visual_model.tflite"),
++  base::File tflite_model(path.AppendASCII("model_with_metadata.tflite"),
+                           base::File::FLAG_OPEN | base::File::FLAG_READ);
+   // `tflite_model` is allowed to be invalid, when testing a DOM-only model.
++  if (tflite_model.IsValid()) {
++    LOG(ERROR) << " ==== visual model override path is valid " << path.value();
++  }else{
++    LOG(ERROR) << "==== visual model override invalid" << path.value();
++  }
+ 
+   content::GetUIThreadTaskRunner({})->PostTask(
+       FROM_HERE,
+@@ -73,8 +80,8 @@ void ReadOverridenModel(
+ 
+ base::File LoadImageEmbeddingModelFile(const base::FilePath& model_file_path) {
+   if (!base::PathExists(model_file_path)) {
+-    VLOG(0)
+-        << "Model path does not exist. Returning empty file. Given path is: "
++    LOG(ERROR)
++        << "==== Model path does not exist. Returning empty file. Given path is: "
+         << model_file_path;
+     return base::File();
+   }
+@@ -83,8 +90,8 @@ base::File LoadImageEmbeddingModelFile(const base::FilePath& model_file_path) {
+       model_file_path, base::File::FLAG_OPEN | base::File::FLAG_READ);
+ 
+   if (!image_embedding_model_file.IsValid()) {
+-    VLOG(2)
+-        << "Failed to receive image embedding model file. File is not valid";
++   LOG(ERROR)
++        << "==== Failed to receive image embedding model file. File is not valid";
+     return base::File();
+   }
+ 
+@@ -96,14 +103,14 @@ std::pair<std::string, base::File> LoadModelAndVisualTfLiteFile(
+     const base::FilePath& model_file_path,
+     base::flat_set<base::FilePath> additional_files) {
+   if (!base::PathExists(model_file_path)) {
+-    VLOG(0) << "Model path does not exist. Returning empty pair. Given path is "
++    LOG(ERROR) << "==== Model path does not exist. Returning empty pair. Given path is "
+             << model_file_path;
+     return std::pair<std::string, base::File>();
+   }
+ 
+   // The only additional file we require and expect is the visual tf lite file
+   if (additional_files.size() != 1) {
+-    VLOG(2) << "Did not receive just one additional file when expected. "
++    LOG(ERROR) << "==== Did not receive just one additional file when expected. "
+                "Actual size: "
+             << additional_files.size();
+     return std::pair<std::string, base::File>();
+@@ -122,13 +129,13 @@ std::pair<std::string, base::File> LoadModelAndVisualTfLiteFile(
+   base::File tf_lite(*visual_tflite_path,
+                      base::File::FLAG_OPEN | base::File::FLAG_READ);
+   if (!model.IsValid() || !tf_lite.IsValid()) {
+-    VLOG(2) << "Failed to override the model and/or tf_lite file.";
++    LOG(ERROR) << "==== Failed to override the model and/or tf_lite file.";
+   }
+ 
+   // Convert model to string
+   std::string model_data;
+   if (!base::ReadFileToString(model_file_path, &model_data)) {
+-    VLOG(2) << "Failed to override model. Could not read model data.";
++    LOG(ERROR)<< "==== Failed to override model. Could not read model data.";
+     return std::pair<std::string, base::File>();
+   }
+ 
+@@ -159,14 +166,20 @@ ClientSidePhishingModel::ClientSidePhishingModel(
+       background_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+           {base::MayBlock(), base::TaskPriority::BEST_EFFORT})),
+       beginning_time_(base::TimeTicks::Now()) {
++        LOG(ERROR) << "==== ClientSidePhishingModel called";
+   opt_guide_->AddObserverForOptimizationTargetModel(
+       optimization_guide::proto::OPTIMIZATION_TARGET_CLIENT_SIDE_PHISHING,
+       /*model_metadata=*/std::nullopt, this);
++
++  // aggiunta
++  LOG(ERROR) << "==== ClientSidePhishingModel trying to override model ";
++  MaybeOverrideModel();
+ }
+ 
+ void ClientSidePhishingModel::OnModelUpdated(
+     optimization_guide::proto::OptimizationTarget optimization_target,
+     base::optional_ref<const optimization_guide::ModelInfo> model_info) {
++  LOG(ERROR) << "==== ClientSidePhishingModel OnModelUpdated called";
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+ 
+   if (optimization_target !=
+@@ -315,7 +328,7 @@ void ClientSidePhishingModel::OnModelAndVisualTfLiteFileLoaded(
+             flat::GetClientSideModel(mapped_region_.mapping.memory());
+ 
+         if (!VerifyCSDFlatBufferIndicesAndFields(flatbuffer_model)) {
+-          VLOG(0) << "Failed to verify CSD Flatbuffer indices and fields";
++          LOG(ERROR)<< "==== Failed to verify CSD Flatbuffer indices and fields";
+         } else {
+           trigger_model_version_ = flatbuffer_model->version();
+           if (tflite_valid) {
+@@ -339,7 +352,7 @@ void ClientSidePhishingModel::OnModelAndVisualTfLiteFileLoaded(
+       base::UmaHistogramBoolean("SBClientPhishing.FlatBufferMappedRegionValid",
+                                 mapped_region_.IsValid());
+     } else {
+-      VLOG(2) << "Failed to validate flatbuffer model";
++      LOG(ERROR) << "==== Failed to validate flatbuffer model";
+     }
+   }
+ 
+@@ -369,7 +382,7 @@ void ClientSidePhishingModel::OnModelAndVisualTfLiteFileLoaded(
+       trigger_model_opt_guide_metadata_image_embedding_version_ =
+           client_side_phishing_model_metadata->image_embedding_model_version();
+     } else {
+-      VLOG(1) << "Client side phishing model metadata is missing an image "
++      LOG(ERROR) << "==== Client side phishing model metadata is missing an image "
+                  "embedding model version value";
+     }
+ 
+@@ -415,7 +428,7 @@ void ClientSidePhishingModel::OnImageEmbeddingModelLoaded(
+     embedding_model_opt_guide_metadata_image_embedding_version_ =
+         image_embedding_model_metadata->image_embedding_model_version();
+   } else {
+-    VLOG(1) << "Image embedding model metadata is missing a version value";
++    LOG(ERROR) << "==== Image embedding model metadata is missing a version value";
+   }
+ 
+   // There is no use of the image embedding model if the visual trigger model is
+@@ -652,6 +665,7 @@ void* ClientSidePhishingModel::GetFlatBufferMemoryAddressForTesting() {
+ 
+ // This function is used for testing in client_side_phishing_model_unittest
+ void ClientSidePhishingModel::MaybeOverrideModel() {
++  LOG(ERROR)<< "==== MaybeOverrideModel";
+   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+           switches::kOverrideCsdModelFlag)) {
+     base::FilePath overriden_model_directory =
+@@ -670,11 +684,13 @@ void ClientSidePhishingModel::MaybeOverrideModel() {
+ void ClientSidePhishingModel::OnGetOverridenModelData(
+     CSDModelType model_type,
+     std::pair<std::string, base::File> model_and_tflite) {
++  LOG(ERROR)<< "==== OnGetOverridenModelData called";
++
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+   const std::string& model_data = model_and_tflite.first;
+   base::File tflite_model = std::move(model_and_tflite.second);
+   if (model_data.empty()) {
+-    VLOG(2) << "Overriden model data is empty";
++    LOG(ERROR)<< "==== Overriden model data is empty";
+     return;
+   }
+ 
+@@ -684,14 +700,14 @@ void ClientSidePhishingModel::OnGetOverridenModelData(
+           reinterpret_cast<const uint8_t*>(model_data.data()),
+           model_data.length());
+       if (!flat::VerifyClientSideModelBuffer(verifier)) {
+-        VLOG(2)
+-            << "Overriden model data is not a valid ClientSideModel flatbuffer";
++        LOG(ERROR)
++            << "==== Overriden model data is not a valid ClientSideModel flatbuffer";
+         return;
+       }
+       mapped_region_ =
+           base::ReadOnlySharedMemoryRegion::Create(model_data.length());
+       if (!mapped_region_.IsValid()) {
+-        VLOG(2) << "Could not create shared memory region for flatbuffer";
++        LOG(ERROR) << "==== Could not create shared memory region for flatbuffer";
+         return;
+       }
+       mapped_region_.mapping.GetMemoryAsSpan<char>().copy_prefix_from(
+@@ -707,7 +723,7 @@ void ClientSidePhishingModel::OnGetOverridenModelData(
+     visual_tflite_model_ = std::move(tflite_model);
+   }
+ 
+-  VLOG(0) << "Model overridden successfully";
++  LOG(ERROR) << "==== Model overridden successfully";
+ 
+   content::GetUIThreadTaskRunner({})->PostTask(
+       FROM_HERE, base::BindOnce(&ClientSidePhishingModel::NotifyCallbacksOnUI,
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier.cc b/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier.cc
+index 8a98d8a19d65e..69de3217b6664 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier.cc
+@@ -122,10 +122,12 @@ void PhishingClassifier::BeginClassification(
+   // iteration of the message loop.
+   if (base::FeatureList::IsEnabled(
+           kClientSideDetectionOnlyExtractVisualFeatures)) {
++    LOG(ERROR) << "==== kClientSideDetectionOnlyExtractVisualFeatures on";
+     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+         FROM_HERE, base::BindOnce(&PhishingClassifier::ExtractVisualFeatures,
+                                   weak_factory_.GetWeakPtr()));
+   } else {
++    LOG(ERROR) << "==== normal classification";
+     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+         FROM_HERE, base::BindOnce(&PhishingClassifier::BeginFeatureExtraction,
+                                   weak_factory_.GetWeakPtr()));
+@@ -263,10 +265,12 @@ void PhishingClassifier::VisualExtractionFinished(bool success) {
+   }
+ 
+ #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
++LOG(ERROR) << "===== BUILDFLAG(BUILD_WITH_TFLITE_LIB) ok";
+   ScorerStorage::GetInstance()->GetScorer()->ApplyVisualTfLiteModel(
+       *bitmap_, base::BindOnce(&PhishingClassifier::OnVisualTfLiteModelDone,
+                                weak_factory_.GetWeakPtr(), std::move(verdict)));
+ #else
++  LOG(ERROR) << "===== BUILDFLAG(BUILD_WITH_TFLITE_LIB) NOT WORKING";
+   RunFailureCallback(Result::kVisualExtractionFailed);
+ #endif
+ }
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.cc b/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.cc
+index f6ed527943715..3b1d0d8a6fb53 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.cc
+@@ -274,6 +274,7 @@ void PhishingClassifierDelegate::ClassificationDone(
+ }
+ 
+ void PhishingClassifierDelegate::MaybeStartClassification() {
++  LOG(ERROR) << "==== MaybeStartClassification";
+   // We can begin phishing classification when the following conditions are
+   // met:
+   //  1. A Scorer has been created
+@@ -287,6 +288,7 @@ void PhishingClassifierDelegate::MaybeStartClassification() {
+   // classified at all (as opposed to deferring it until we get an IPC or
+   // the load completes), we discard the page text since it won't be needed.
+   if (!classifier_->is_ready()) {
++    LOG(ERROR) << "==== classifier_ not ready";
+     // We should only retry if a phishing detection has been requested, which
+     // is tracked by |is_phishing_detection_running_|.
+     if (base::FeatureList::IsEnabled(kClientSideDetectionRetryLimit) &&
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder.cc b/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder.cc
+index 044389737b6e5..0585daaa6dc32 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder.cc
+@@ -23,6 +23,8 @@ PhishingImageEmbedder::PhishingImageEmbedder(content::RenderFrame* render_frame)
+     : render_frame_(render_frame) {}
+ 
+ bool PhishingImageEmbedder::is_ready() const {
++  LOG(ERROR) << "==== PhishingImageEmbedder::is_ready called";
++
+   return !!ScorerStorage::GetInstance()->GetScorer();
+ }
+ 
+@@ -31,6 +33,7 @@ PhishingImageEmbedder::~PhishingImageEmbedder() {
+ }
+ 
+ void PhishingImageEmbedder::BeginImageEmbedding(DoneCallback done_callback) {
++  LOG(ERROR) << " ==== BeginImageEmbedding called";
+   TRACE_EVENT_BEGIN("safe_browsing", "PhishingImageEmbedding",
+                     perfetto::Track::FromPointer(this));
+   DCHECK(is_ready());
+@@ -49,6 +52,7 @@ void PhishingImageEmbedder::BeginImageEmbedding(DoneCallback done_callback) {
+ }
+ 
+ void PhishingImageEmbedder::OnPlaybackDone(std::unique_ptr<SkBitmap> bitmap) {
++  LOG(ERROR) << "==== OnPlaybackDone called, bitmap is " << (bitmap ? "valid" : "null");
+ #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+   if (bitmap) {
+     bitmap_ = std::move(bitmap);
+@@ -75,6 +79,8 @@ void PhishingImageEmbedder::CancelPendingImageEmbedding() {
+ 
+ void PhishingImageEmbedder::OnImageEmbeddingDone(
+     ImageFeatureEmbedding image_feature_embedding) {
++  LOG(ERROR) << " ===== OnImageEmbeddingDone called, embedding size: "
++            << image_feature_embedding.embedding_value_size();
+   if (image_feature_embedding.embedding_value_size() > 0) {
+     Scorer* scorer = ScorerStorage::GetInstance()->GetScorer();
+     image_feature_embedding.set_embedding_model_version(
+@@ -85,6 +91,8 @@ void PhishingImageEmbedder::OnImageEmbeddingDone(
+ 
+ void PhishingImageEmbedder::RunCallback(
+     const ImageFeatureEmbedding& image_feature_embedding) {
++  LOG(ERROR) << " ==== RunCallback called, embedding size: "
++            << image_feature_embedding.embedding_value_size();
+   TRACE_EVENT_END("safe_browsing", /* PhishingImageEmbedding */
+                   perfetto::Track::FromPointer(this));
+   std::move(done_callback_).Run(image_feature_embedding);
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder_delegate.cc b/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder_delegate.cc
+index 290ef62178650..6e95e1303bcc3 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder_delegate.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder_delegate.cc
+@@ -101,6 +101,7 @@ bool PhishingImageEmbedderDelegate::is_ready() const {
+ }
+ 
+ void PhishingImageEmbedderDelegate::MaybeStartImageEmbedding() {
++  LOG(ERROR) << "==== MaybeStartImageEmbedding";
+   // We can begin the image embedding process when the following conditions are
+   // met:
+   //  1. A Scorer has been created
+@@ -109,6 +110,7 @@ void PhishingImageEmbedderDelegate::MaybeStartImageEmbedding() {
+   //  3. The load is a new navigation (not a session history navigation).
+   //  4. The toplevel URL has not already been processed.
+   if (!image_embedder_->is_ready()) {
++    LOG(ERROR) << "==== EXIT: image_embedder not ready";
+     is_image_embedding_running_ = false;
+     if (!image_embedding_callback_.is_null()) {
+       std::move(image_embedding_callback_)
+@@ -119,6 +121,7 @@ void PhishingImageEmbedderDelegate::MaybeStartImageEmbedding() {
+   }
+ 
+   if (last_main_frame_transition_ & ui::PAGE_TRANSITION_FORWARD_BACK) {
++      LOG(ERROR) << "==== EXIT: forward/back transition";
+     // Skip loads from session history navigation.  However, update the
+     // last URL sent to the image embedder, so that we'll properly detect
+     // same-document navigations.
+@@ -135,6 +138,7 @@ void PhishingImageEmbedderDelegate::MaybeStartImageEmbedding() {
+   GURL stripped_last_load_url(StripRef(last_finished_load_url_));
+ 
+   if (last_url_received_from_browser_ != stripped_last_load_url) {
++    LOG(ERROR) << "==== EXIT: URL mismatch. last_url_received_from_browser=";
+     RecordEvent(
+         SBPhishingImageEmbedderEvent::kUrlShouldNotBeUsedForImageEmbedding);
+     // The browser has not yet confirmed that this URL should be used for image
+@@ -146,6 +150,7 @@ void PhishingImageEmbedderDelegate::MaybeStartImageEmbedding() {
+ 
+   last_url_sent_to_image_embedder_ = last_finished_load_url_;
+   is_image_embedding_ = true;
++  LOG(ERROR) << "==== image embedding started";
+   image_embedder_->BeginImageEmbedding(
+       base::BindOnce(&PhishingImageEmbedderDelegate::ImageEmbeddingDone,
+                      base::Unretained(this)));
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/phishing_model_setter_impl.cc b/components/safe_browsing/content/renderer/phishing_classifier/phishing_model_setter_impl.cc
+index 6a7de7967f5ad..7094d04094d43 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/phishing_model_setter_impl.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/phishing_model_setter_impl.cc
+@@ -12,6 +12,7 @@ namespace safe_browsing {
+ std::unique_ptr<Scorer> CreateFlatBufferModelScorer(
+     base::ReadOnlySharedMemoryRegion flatbuffer_region,
+     base::File tflite_visual_model) {
++  LOG(ERROR) << "==== CreateFlatBufferModelScorer called";
+   std::unique_ptr<Scorer> scorer;
+   // An invalid region means we should disable client-side phishing detection.
+   if (flatbuffer_region.IsValid()) {
+@@ -25,6 +26,7 @@ std::unique_ptr<Scorer> CreateScorerWithImageEmbeddingModel(
+     base::ReadOnlySharedMemoryRegion flatbuffer_region,
+     base::File tflite_visual_model,
+     base::File image_embedding_model) {
++  LOG(ERROR) << "==== CreateScorerWithImageEmbeddingModel called";
+   std::unique_ptr<Scorer> scorer;
+   // An invalid region means we should disable client-side phishing detection.
+   if (flatbuffer_region.IsValid()) {
+@@ -40,6 +42,8 @@ PhishingModelSetterImpl::~PhishingModelSetterImpl() = default;
+ 
+ void PhishingModelSetterImpl::RegisterMojoInterfaces(
+     blink::AssociatedInterfaceRegistry* associated_interfaces) {
++    LOG(ERROR) <<"==== RegisterMojoInterfaces called";
++
+   associated_interfaces->AddInterface<mojom::PhishingModelSetter>(
+       base::BindRepeating(&PhishingModelSetterImpl::OnRendererAssociatedRequest,
+                           base::Unretained(this)));
+@@ -47,6 +51,8 @@ void PhishingModelSetterImpl::RegisterMojoInterfaces(
+ 
+ void PhishingModelSetterImpl::UnregisterMojoInterfaces(
+     blink::AssociatedInterfaceRegistry* associated_interfaces) {
++      LOG(ERROR) <<"==== UnregisterMojoInterfaces called";
++
+   associated_interfaces->RemoveInterface(mojom::PhishingModelSetter::Name_);
+ }
+ 
+@@ -54,11 +60,14 @@ void PhishingModelSetterImpl::SetImageEmbeddingAndPhishingFlatBufferModel(
+     base::ReadOnlySharedMemoryRegion flatbuffer_region,
+     base::File tflite_visual_model,
+     base::File image_embedding_model) {
+-  std::unique_ptr<Scorer> scorer = CreateScorerWithImageEmbeddingModel(
++  LOG(ERROR) <<"==== SetImageEmbeddingAndPhishingFlatBufferModel called";
++
++  std::unique_ptr<Scorer> scorer = CreateScorerWithImageEmbeddingModel(  // scorer creation!!!!!!
+       std::move(flatbuffer_region), std::move(tflite_visual_model),
+       std::move(image_embedding_model));
+ 
+   if (!scorer) {
++    LOG(ERROR) <<"==== SetImageEmbeddingAndPhishingFlatBufferModel no scorer, exit";
+     return;
+   }
+   ScorerStorage::GetInstance()->SetScorer(std::move(scorer));
+@@ -71,13 +80,15 @@ void PhishingModelSetterImpl::SetImageEmbeddingAndPhishingFlatBufferModel(
+ void PhishingModelSetterImpl::SetPhishingFlatBufferModel(
+     base::ReadOnlySharedMemoryRegion flatbuffer_region,
+     base::File tflite_visual_model) {
++      LOG(ERROR) <<"==== SetPhishingFlatBufferModel called";
++
+   std::unique_ptr<Scorer> scorer = CreateFlatBufferModelScorer(
+       std::move(flatbuffer_region), std::move(tflite_visual_model));
+   if (!scorer) {
+     return;
+   }
+   ScorerStorage::GetInstance()->SetScorer(std::move(scorer));
+-
++  LOG(ERROR) <<"==== SetPhishingFlatBufferModel SetScorer done";
+   if (observer_for_testing_.is_bound()) {
+     observer_for_testing_->PhishingModelUpdated();
+   }
+@@ -85,6 +96,8 @@ void PhishingModelSetterImpl::SetPhishingFlatBufferModel(
+ 
+ void PhishingModelSetterImpl::AttachImageEmbeddingModel(
+     base::File image_embedding_model) {
++        LOG(ERROR) <<"==== AttachImageEmbeddingModel called";
++
+   Scorer* scorer = ScorerStorage::GetInstance()->GetScorer();
+ 
+   if (!scorer) {
+@@ -95,12 +108,16 @@ void PhishingModelSetterImpl::AttachImageEmbeddingModel(
+ }
+ 
+ void PhishingModelSetterImpl::ClearScorer() {
++            LOG(ERROR) <<"==== ClearScorer called";
++
+   ScorerStorage::GetInstance()->ClearScorer();
+ }
+ 
+ void PhishingModelSetterImpl::SetTestObserver(
+     mojo::PendingRemote<mojom::PhishingModelSetterTestObserver> observer,
+     SetTestObserverCallback callback) {
++          LOG(ERROR) <<"==== SetTestObserver called";
++
+   if (observer_for_testing_.is_bound())
+     observer_for_testing_.reset();
+   observer_for_testing_.Bind(std::move(observer));
+@@ -109,6 +126,8 @@ void PhishingModelSetterImpl::SetTestObserver(
+ 
+ void PhishingModelSetterImpl::OnRendererAssociatedRequest(
+     mojo::PendingAssociatedReceiver<mojom::PhishingModelSetter> receiver) {
++            LOG(ERROR) <<"==== OnRendererAssociatedRequest called";
++
+   receiver_.reset();
+   receiver_.Bind(std::move(receiver));
+ }
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/phishing_url_feature_extractor.cc b/components/safe_browsing/content/renderer/phishing_classifier/phishing_url_feature_extractor.cc
+index 54b4ef538200a..7c22cea1e71e5 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/phishing_url_feature_extractor.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/phishing_url_feature_extractor.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "components/safe_browsing/content/renderer/phishing_classifier/phishing_url_feature_extractor.h"
++#include "base/logging.h"
+ 
+ #include <algorithm>
+ #include <string>
+@@ -25,6 +26,8 @@ PhishingUrlFeatureExtractor::~PhishingUrlFeatureExtractor() = default;
+ 
+ bool PhishingUrlFeatureExtractor::ExtractFeatures(const GURL& url,
+                                                   FeatureMap* features) {
++
++LOG(ERROR) << ">>> ===== ExtractURL Features chiamato ";
+   base::ElapsedTimer timer;
+   if (url.HostIsIPAddress()) {
+     if (!features->AddBooleanFeature(features::kUrlHostIsIpAddress))
+diff --git a/components/safe_browsing/content/renderer/phishing_classifier/scorer.cc b/components/safe_browsing/content/renderer/phishing_classifier/scorer.cc
+index fedfacba15386..ef36f50299c86 100644
+--- a/components/safe_browsing/content/renderer/phishing_classifier/scorer.cc
++++ b/components/safe_browsing/content/renderer/phishing_classifier/scorer.cc
+@@ -113,7 +113,7 @@ std::unique_ptr<tflite::MutableOpResolver> CreateOpResolver() {
+ 
+ std::unique_ptr<tflite::task::vision::ImageClassifier> CreateClassifier(
+     std::string model_data) {
+-  TRACE_EVENT0("safe_browsing", "CreateTfLiteClassifier");
++   TRACE_EVENT0("safe_browsing", "CreateTfLiteClassifier");
+   tflite::task::vision::ImageClassifierOptions options;
+   tflite::task::core::BaseOptions* base_options =
+       options.mutable_base_options();
+@@ -126,7 +126,7 @@ std::unique_ptr<tflite::task::vision::ImageClassifier> CreateClassifier(
+       tflite::task::vision::ImageClassifier::CreateFromOptions(
+           options, CreateOpResolver());
+   if (!statusor_classifier.ok()) {
+-    VLOG(1) << statusor_classifier.status().ToString();
++    LOG(ERROR) << statusor_classifier.status().ToString();
+     return nullptr;
+   }
+ 
+@@ -142,7 +142,7 @@ std::unique_ptr<tflite::task::vision::ImageEmbedder> CreateImageEmbedder(
+   auto embedder = tflite::task::vision::ImageEmbedder::CreateFromOptions(
+       embedder_options, CreateOpResolver());
+   if (!embedder.ok()) {
+-    VLOG(1) << "Failed to create the embedder. Embedder status is: "
++   LOG(ERROR) << "==== Failed to create the embedder. Embedder status is: "
+             << embedder.status().ToString();
+     return nullptr;
+   }
+@@ -186,7 +186,7 @@ std::string GetModelInput(const SkBitmap& bitmap,
+       data += static_cast<char>(SkColorGetB(color));
+     }
+   }
+-
++  LOG(ERROR) << "==== GetModelInput SkBitmap downsampled ";
+   return data;
+ }
+ 
+@@ -215,7 +215,7 @@ void OnModelInputCreatedForClassifier(
+   base::UmaHistogramTimes("SBClientPhishing.ApplyTfliteTime.Classify",
+                           base::Time::Now() - before_operation);
+   if (!statusor_result.ok()) {
+-    VLOG(1) << statusor_result.status().ToString();
++    LOG(ERROR) << statusor_result.status().ToString();
+     callback_task_runner->PostTask(
+         FROM_HERE, base::BindOnce(std::move(callback), std::vector<double>()));
+     return;
+@@ -226,6 +226,7 @@ void OnModelInputCreatedForClassifier(
+   for (const tflite::task::vision::Class& clas :
+        statusor_result->classifications(0).classes()) {
+     scores[clas.index()] = clas.score();
++    LOG(ERROR) << "OnModelInputCreatedForClassifier scores: " << scores[clas.index()];
+   }
+ 
+   callback_task_runner->PostTask(
+@@ -246,7 +247,7 @@ void OnModelInputCreatedForImageEmbedding(
+   ImageFeatureEmbedding image_feature_embedding;
+ 
+   if (!statusor_result.ok()) {
+-    VLOG(1) << "Embedding failed with the status "
++    LOG(ERROR) << "==== Embedding failed with the status "
+             << statusor_result.status().ToString();
+     callback_task_runner->PostTask(
+         FROM_HERE,
+@@ -274,6 +275,7 @@ void OnClassifierCreated(
+     std::unique_ptr<tflite::task::vision::ImageClassifier> classifier,
+     scoped_refptr<base::SequencedTaskRunner> callback_task_runner,
+     base::OnceCallback<void(std::vector<double>)> callback) {
++  LOG(ERROR) << "OnClassifierCreated CALLED";
+   std::string model_input = GetModelInput(bitmap, input_width, input_height);
+   if (model_input.empty()) {
+     callback_task_runner->PostTask(
+@@ -324,10 +326,12 @@ void Scorer::ApplyVisualTfLiteModelHelper(
+     std::string model_data,
+     scoped_refptr<base::SequencedTaskRunner> callback_task_runner,
+     base::OnceCallback<void(std::vector<double>)> callback) {
++  LOG(ERROR) << "ApplyVisualTfLiteModelHelper CALLED";
+   TRACE_EVENT0("safe_browsing", "ApplyVisualTfLiteModel");
+   std::unique_ptr<tflite::task::vision::ImageClassifier> classifier =
+       CreateClassifier(std::move(model_data));
+   if (!classifier) {
++    LOG(ERROR) << "ApplyVisualTfLiteModelHelper classifier is a nullptr";
+     callback_task_runner->PostTask(
+         FROM_HERE, base::BindOnce(std::move(callback), std::vector<double>()));
+     return;
+@@ -395,12 +399,14 @@ std::unique_ptr<Scorer> Scorer::Create(base::ReadOnlySharedMemoryRegion region,
+   std::unique_ptr<Scorer> scorer(new Scorer());
+ 
+   if (!region.IsValid()) {
++    LOG(ERROR) << "==== Create: region not valid";
+     RecordScorerCreationStatus(SCORER_FAIL_FLATBUFFER_INVALID_REGION);
+     return nullptr;
+   }
+ 
+   base::ReadOnlySharedMemoryMapping mapping = region.Map();
+   if (!mapping.IsValid()) {
++    LOG(ERROR) << "==== Create: mapping not valid";
+     RecordScorerCreationStatus(SCORER_FAIL_FLATBUFFER_INVALID_MAPPING);
+     return nullptr;
+   }
+@@ -408,6 +414,8 @@ std::unique_ptr<Scorer> Scorer::Create(base::ReadOnlySharedMemoryRegion region,
+   flatbuffers::Verifier verifier(
+       reinterpret_cast<const uint8_t*>(mapping.memory()), mapping.size());
+   if (!flat::VerifyClientSideModelBuffer(verifier)) {
++      LOG(ERROR) << "===== Create: flatbuffer verification FAILED";
++
+     RecordScorerCreationStatus(SCORER_FAIL_FLATBUFFER_FAILED_VERIFY);
+     return nullptr;
+   }
+@@ -415,8 +423,10 @@ std::unique_ptr<Scorer> Scorer::Create(base::ReadOnlySharedMemoryRegion region,
+ 
+   // Only do this part if the visual model file exists
+   if (visual_tflite_model.IsValid()) {
++    LOG(ERROR) << "==== Create: visual_tflite_model valid";
+     if (!scorer->visual_tflite_model_.Initialize(
+             std::move(visual_tflite_model))) {
++      LOG(ERROR) << " ==== Create: Initialize visual_tflite_model failed";
+       RecordScorerCreationStatus(SCORER_FAIL_MAP_VISUAL_TFLITE_MODEL);
+       return nullptr;
+     } else {
+@@ -433,7 +443,7 @@ std::unique_ptr<Scorer> Scorer::Create(base::ReadOnlySharedMemoryRegion region,
+ 
+   RecordScorerCreationStatus(SCORER_SUCCESS);
+   scorer->flatbuffer_mapping_ = std::move(mapping);
+-
++  LOG(ERROR) << " ==== Create scorer succeded";
+   return scorer;
+ }
+ 
+@@ -441,14 +451,17 @@ std::unique_ptr<Scorer> Scorer::CreateScorerWithImageEmbeddingModel(
+     base::ReadOnlySharedMemoryRegion region,
+     base::File visual_tflite_model,
+     base::File image_embedding_model) {
++  LOG(ERROR) << " ==== CreateScorerWithImageEmbeddingModel called";
+   std::unique_ptr<Scorer> scorer =
+       Create(std::move(region), std::move(visual_tflite_model));
+ 
+   if (image_embedding_model.IsValid()) {
++    LOG(ERROR) << "==== CreateScorerWithImageEmbeddingModel: file valido";
+     if (scorer && !scorer->image_embedding_model_.Initialize(
+                       std::move(image_embedding_model))) {
+       RecordScorerCreationStatus(
+           SCORER_FAIL_FLATBUFFER_INVALID_IMAGE_EMBEDDING_TFLITE_MODEL);
++      LOG(ERROR) << " ==== SCORER_FAIL_FLATBUFFER_INVALID_IMAGE_EMBEDDING_TFLITE_MODEL";
+       return nullptr;
+     }
+   }
+@@ -633,6 +646,8 @@ int Scorer::image_embedding_tflite_model_version() const {
+ }
+ 
+ void ScorerStorage::SetScorer(std::unique_ptr<Scorer> scorer) {
++  LOG(ERROR) << "==== ScorerStorage::SetScorer called. ";
++
+   scorer_ = std::move(scorer);
+   for (Observer& obs : observers_) {
+     obs.OnScorerChanged();
+@@ -640,6 +655,7 @@ void ScorerStorage::SetScorer(std::unique_ptr<Scorer> scorer) {
+ }
+ 
+ void ScorerStorage::ClearScorer() {
++   LOG(ERROR) << "==== ScorerStorage::ClearScorer called";
+   scorer_.reset();
+   for (Observer& obs : observers_) {
+     obs.OnScorerChanged();
+diff --git a/components/safe_browsing/core/common/safe_browsing_prefs.cc b/components/safe_browsing/core/common/safe_browsing_prefs.cc
+index 0b8b86eb3423f..9a5393e0c6255 100644
+--- a/components/safe_browsing/core/common/safe_browsing_prefs.cc
++++ b/components/safe_browsing/core/common/safe_browsing_prefs.cc
+@@ -120,8 +120,9 @@ bool IsSafeBrowsingEnabled(const PrefService& prefs) {
+ bool IsEnhancedProtectionEnabled(const PrefService& prefs) {
+   // SafeBrowsingEnabled is checked too due to devices being out
+   // of sync or not on a version that includes SafeBrowsingEnhanced pref.
+-  return prefs.GetBoolean(prefs::kSafeBrowsingEnhanced) &&
+-         IsSafeBrowsingEnabled(prefs);
++  //return prefs.GetBoolean(prefs::kSafeBrowsingEnhanced) &&   // I force Enhanced protection
++    //     IsSafeBrowsingEnabled(prefs);
++  return true;
+ }
+ 
+ ExtendedReportingLevel GetExtendedReportingLevel(const PrefService& prefs) {
